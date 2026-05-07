@@ -1,0 +1,136 @@
+version: "3.9"
+
+services:
+  # ─────────────────────────────────────────────
+  # PostgreSQL — Primary Database (dedup + audit)
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: bidbot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bidding_bot
+      POSTGRES_USER: bidbot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-S3cur3P@ssw0rd!}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bidbot -d bidding_bot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bidbot_net
+
+  # ─────────────────────────────────────────────
+  # Redis — Job queue, rate-limit state, caching
+  # ─────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: bidbot_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-R3d!sP@ss}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bidbot_net
+
+  # ─────────────────────────────────────────────
+  # Python Worker API — FastAPI + Playwright
+  # ─────────────────────────────────────────────
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: bidbot_worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://bidbot:${POSTGRES_PASSWORD:-S3cur3P@ssw0rd!}@postgres:5432/bidding_bot
+      REDIS_URL: redis://:${REDIS_PASSWORD:-R3d!sP@ss}@redis:6379/0
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      WORKER_SECRET: ${WORKER_SECRET:-ch@ngeMe!}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./worker/sessions:/app/sessions   # Persistent browser sessions
+      - ./worker/screenshots:/app/screenshots  # Evidence/debug screenshots
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Xvfb display for headed browser on Linux VPS
+    shm_size: "2gb"
+    networks:
+      - bidbot_net
+
+  # ─────────────────────────────────────────────
+  # n8n — Workflow Orchestration
+  # ─────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: bidbot_n8n
+    restart: unless-stopped
+    environment:
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: bidbot
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-S3cur3P@ssw0rd!}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-changeme32charkey00000000000000}
+      GENERIC_TIMEZONE: America/New_York
+      N8N_LOG_LEVEL: info
+      N8N_METRICS: "true"
+      WEBHOOK_URL: http://n8n:5678
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/workflows:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bidbot_net
+
+  # ─────────────────────────────────────────────
+  # Dashboard — Monitoring & Control UI
+  # ─────────────────────────────────────────────
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: bidbot_dashboard
+    restart: unless-stopped
+    environment:
+      WORKER_API_URL: http://worker:8080
+      WORKER_SECRET: ${WORKER_SECRET:-ch@ngeMe!}
+      DATABASE_URL: postgresql://bidbot:${POSTGRES_PASSWORD:-S3cur3P@ssw0rd!}@postgres:5432/bidding_bot
+    ports:
+      - "3000:3000"
+    depends_on:
+      - worker
+      - postgres
+    networks:
+      - bidbot_net
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:
+
+networks:
+  bidbot_net:
+    driver: bridge

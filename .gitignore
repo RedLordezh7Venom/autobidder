@@ -1,0 +1,8 @@
+.env
+*.pyc
+__pycache__/
+.pytest_cache/
+worker/sessions/
+worker/screenshots/
+*.log
+.DS_Store

@@ -1,0 +1,241 @@
+{
+  "meta": {
+    "instanceId": "auto-bidding-bot-v2",
+    "templateCredsSetupCompleted": true
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "hours", "minutesInterval": 60 }
+          ]
+        }
+      },
+      "id": "trigger-schedule",
+      "name": "⏰ Hourly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Business hours gate: 9am-6pm EST, Mon-Fri\nconst now = new Date();\nconst dayOfWeek = now.getDay(); // 0=Sun, 6=Sat\nconst hour = now.getHours();\n\nconst isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;\nconst inHours = hour >= 9 && hour < 18;\n\nif (!isWeekday || !inHours) {\n  return [{ json: { proceed: false, reason: 'outside_business_hours' } }];\n}\nreturn [{ json: { proceed: true } }];"
+      },
+      "id": "check-hours",
+      "name": "🕐 Business Hours Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.proceed }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "if-in-hours",
+      "name": "✅ Proceed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://worker:8080/scrape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"platform\": \"both\",\n  \"max_posts_per_keyword\": 15\n}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "call-scraper",
+      "name": "🔍 Scrape Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "worker-auth",
+          "name": "Worker API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse posts from scraper response\nconst response = $input.all()[0].json;\nconst posts = response.posts || [];\n\nif (posts.length === 0) {\n  return [];\n}\n\nreturn posts.map(post => ({ json: post }));"
+      },
+      "id": "parse-posts",
+      "name": "📋 Parse Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 180]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-posts",
+      "name": "🔄 Loop Posts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1100, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://worker:8080/post",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"platform\": \"{{ $json.platform }}\",\n  \"post_id\": \"{{ $json.post_id }}\",\n  \"post_url\": \"{{ $json.url }}\",\n  \"post_content\": {{ JSON.stringify($json.content) }},\n  \"author_name\": \"{{ $json.author }}\"\n}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "call-poster",
+      "name": "🤖 Post Bid",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "worker-auth",
+          "name": "Worker API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log result and check for circuit trip\nconst result = $input.all()[0].json;\nconst post = $('Loop Posts').item.json;\n\nconsole.log(`Post ${post.post_id} [${post.platform}]: ${result.success ? '✅ POSTED' : '❌ ' + result.reason}`);\n\nreturn [{ json: { ...result, post_id: post.post_id, platform: post.platform } }];"
+      },
+      "id": "log-result",
+      "name": "📝 Log Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "if-success",
+      "name": "✅ Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1760, 180]
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * (25 - 8 + 1)) + 8 }}",
+        "unit": "minutes"
+      },
+      "id": "human-delay",
+      "name": "⏳ Human Delay (8-25m)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1980, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.reason }}",
+              "rightValue": "circuit_tripped",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "if-circuit-tripped",
+      "name": "⚡ Circuit Tripped?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1980, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log the halt — in production, this should fire a Telegram alert\n// The Python worker handles Telegram alerting directly\nconsole.error('🚨 CIRCUIT BREAKER TRIPPED — workflow halted!');\nreturn [{ json: { halted: true, reason: 'circuit_breaker' } }];"
+      },
+      "id": "halt-workflow",
+      "name": "🚨 Halt & Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, 300]
+    }
+  ],
+  "connections": {
+    "⏰ Hourly Schedule": {
+      "main": [[{ "node": "🕐 Business Hours Gate", "type": "main", "index": 0 }]]
+    },
+    "🕐 Business Hours Gate": {
+      "main": [[{ "node": "✅ Proceed?", "type": "main", "index": 0 }]]
+    },
+    "✅ Proceed?": {
+      "main": [
+        [{ "node": "🔍 Scrape Posts", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "🔍 Scrape Posts": {
+      "main": [[{ "node": "📋 Parse Posts", "type": "main", "index": 0 }]]
+    },
+    "📋 Parse Posts": {
+      "main": [[{ "node": "🔄 Loop Posts", "type": "main", "index": 0 }]]
+    },
+    "🔄 Loop Posts": {
+      "main": [[{ "node": "🤖 Post Bid", "type": "main", "index": 0 }]]
+    },
+    "🤖 Post Bid": {
+      "main": [[{ "node": "📝 Log Result", "type": "main", "index": 0 }]]
+    },
+    "📝 Log Result": {
+      "main": [[{ "node": "✅ Success?", "type": "main", "index": 0 }]]
+    },
+    "✅ Success?": {
+      "main": [
+        [{ "node": "⏳ Human Delay (8-25m)", "type": "main", "index": 0 }],
+        [{ "node": "⚡ Circuit Tripped?", "type": "main", "index": 0 }]
+      ]
+    },
+    "⏳ Human Delay (8-25m)": {
+      "main": [[{ "node": "🔄 Loop Posts", "type": "main", "index": 0 }]]
+    },
+    "⚡ Circuit Tripped?": {
+      "main": [
+        [{ "node": "🚨 Halt & Alert", "type": "main", "index": 0 }],
+        [{ "node": "🔄 Loop Posts", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "pinData": {}
+}
