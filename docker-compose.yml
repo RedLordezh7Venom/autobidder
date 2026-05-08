@@ -119,7 +119,7 @@ services:
       WORKER_SECRET: ${WORKER_SECRET:-ch@ngeMe!}
       DATABASE_URL: postgresql://bidbot:${POSTGRES_PASSWORD:-S3cur3P@ssw0rd!}@postgres:5432/bidding_bot
     ports:
-      - "3000:3000"
+      - "3001:3000"
     depends_on:
       - worker
       - postgres
