@@ -1,41 +1,29 @@
-FROM python:3.11-slim-bookworm
+# Use a base image with Python and system dependencies for Playwright
+FROM mcr.microsoft.com/playwright/python:v1.44.0-jammy
 
-# ── System deps ───────────────────────────────────────────────
-RUN apt-get update && apt-get install -y \
-    curl \
-    wget \
-    gnupg \
-    xvfb \
-    x11vnc \
-    fluxbox \
-    fonts-liberation \
-    libnss3 \
-    libatk-bridge2.0-0 \
-    libdrm2 \
-    libxkbcommon0 \
-    libgbm1 \
-    libasound2 \
-    && rm -rf /var/lib/apt/lists/*
-
-# ── Python deps ───────────────────────────────────────────────
+# Set work directory
 WORKDIR /app
+
+# Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ── Install Playwright & browsers ─────────────────────────────
+# The base image already has browsers, but we ensure chromium is ready
 RUN playwright install chromium
-RUN playwright install-deps chromium
 
-# ── Copy app code ─────────────────────────────────────────────
+# Copy the rest of the code
 COPY . .
 
-# Create session/screenshot dirs
-RUN mkdir -p /app/sessions /app/screenshots
+# Ensure directories for screenshots and sessions exist
+RUN mkdir -p screenshots sessions
 
-# Startup: launch Xvfb display then FastAPI
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
 
+# Expose the port Render will provide
 EXPOSE 8080
 
-ENTRYPOINT ["/entrypoint.sh"]
+# Start the application using uvicorn
+# We use the PORT env var provided by Render
+CMD uvicorn main:app --host 0.0.0.0 --port $PORT

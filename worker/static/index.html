@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoBid — Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
+  --primary:#7c6aff;--primary-glow:rgba(124,106,255,.25);
+  --green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;
+  --text:#e6edf3;--muted:#8b949e;--radius:10px;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── Nav ── */
+nav{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.logo{font-weight:700;font-size:1.1rem;display:flex;align-items:center;gap:.5rem}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);box-shadow:0 0 10px var(--primary);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.nav-status{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--muted)}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
+
+/* ── Layout ── */
+.container{max-width:1100px;margin:0 auto;padding:2rem}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:720px){.grid-2{grid-template-columns:1fr}}
+.grid-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:1.5rem}
+
+/* ── Cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem}
+.card h2{font-size:.9rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1.2rem}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem}
+.stat-card .label{font-size:.75rem;color:var(--muted);margin-bottom:.3rem}
+.stat-card .value{font-size:1.9rem;font-weight:700}
+.value.green{color:var(--green)}.value.red{color:var(--red)}.value.yellow{color:var(--yellow)}
+
+/* ── Form elements ── */
+textarea,input,select{
+  width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:inherit;font-size:.9rem;padding:.75rem;
+  transition:border-color .2s,box-shadow .2s;outline:none;resize:vertical
+}
+textarea:focus,input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-glow)}
+label{display:block;font-size:.8rem;font-weight:500;color:var(--muted);margin-bottom:.4rem}
+.field{margin-bottom:1rem}
+select{cursor:pointer}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.65rem 1.2rem;border-radius:8px;
+  font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{filter:brightness(1.15);box-shadow:0 0 14px var(--primary-glow)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:var(--surface2)}
+.btn-danger{background:transparent;border:1px solid var(--red);color:var(--red)}
+.btn-danger:hover{background:rgba(248,81,73,.1)}
+.btn-sm{padding:.4rem .8rem;font-size:.8rem}
+
+/* ── Pipeline steps ── */
+.pipeline{display:flex;flex-direction:column;gap:.75rem;margin-top:1.2rem}
+.step{display:flex;gap:.75rem;align-items:flex-start;opacity:.3;transition:opacity .3s}
+.step.active{opacity:1}
+.step-icon{width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0;margin-top:2px}
+.step.done .step-icon{background:#0d3020;border-color:var(--green);color:var(--green)}
+.step.running .step-icon{background:var(--primary-glow);border-color:var(--primary);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.step-body h4{font-size:.85rem;font-weight:600;margin-bottom:.2rem}
+.step-body p{font-size:.8rem;color:var(--muted);line-height:1.5}
+.step-body .result{margin-top:.4rem;background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  padding:.6rem .8rem;font-size:.82rem;line-height:1.5;color:var(--text)}
+
+/* ── Bid result ── */
+.bid-box{background:linear-gradient(135deg,#1a1042,#0d1530);border:1px solid var(--primary);border-radius:10px;
+  padding:1.2rem;font-size:.9rem;line-height:1.6;position:relative;margin-top:.5rem}
+.bid-box .copy-btn{position:absolute;top:.6rem;right:.6rem}
+.model-tag{display:inline-block;font-size:.72rem;padding:.2rem .5rem;border-radius:6px;
+  background:var(--surface2);border:1px solid var(--border);color:var(--muted);margin-top:.5rem}
+
+/* ── Circuit breakers ── */
+.circuit-row{display:flex;align-items:center;justify-content:space-between;
+  padding:.6rem 0;border-bottom:1px solid var(--border)}
+.circuit-row:last-child{border-bottom:none}
+.circuit-label{display:flex;align-items:center;gap:.5rem;font-size:.88rem;font-weight:500}
+.led{width:8px;height:8px;border-radius:50%}
+.led.ok{background:var(--green);box-shadow:0 0 6px var(--green)}
+.led.tripped{background:var(--red);box-shadow:0 0 6px var(--red)}
+.badge{display:inline-block;padding:.2rem .5rem;border-radius:6px;font-size:.75rem;font-weight:600}
+.badge.ok{background:#0d3020;color:var(--green)}
+.badge.tripped{background:#3d0f0f;color:var(--red)}
+
+/* ── Activity table ── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.83rem}
+th{padding:.5rem .75rem;text-align:left;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border)}
+td{padding:.55rem .75rem;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+.status-badge{padding:.15rem .45rem;border-radius:6px;font-size:.73rem;font-weight:600}
+.status-badge.posted{background:#0d3020;color:var(--green)}
+.status-badge.skipped{background:#1c1917;color:#a8a29e}
+.status-badge.failed{background:#3d0f0f;color:var(--red)}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:1.5rem;right:1.5rem;background:#22c55e;color:#052e16;
+  padding:.7rem 1.2rem;border-radius:8px;font-weight:600;font-size:.85rem;
+  opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;z-index:999}
+#toast.show{opacity:1;transform:translateY(0)}
+
+/* ── Misc ── */
+.row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+.empty{color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem 0}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+.section-gap{margin-bottom:1.5rem}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><span class="logo-dot"></span> AutoBid</div>
+  <div class="nav-status"><span class="status-dot" id="api-dot"></span><span id="api-status">Connecting…</span></div>
+</nav>
+
+<div class="container">
+
+  <!-- Stats row -->
+  <div class="grid-stats section-gap" id="stats-grid">
+    <div class="stat-card"><div class="label">Total Posted</div><div class="value green" id="s-posted">—</div></div>
+    <div class="stat-card"><div class="label">Skipped</div><div class="value yellow" id="s-skipped">—</div></div>
+    <div class="stat-card"><div class="label">Failed</div><div class="value red" id="s-failed">—</div></div>
+    <div class="stat-card"><div class="label">Today / LinkedIn</div><div class="value" id="s-li">—</div></div>
+    <div class="stat-card"><div class="label">Today / X</div><div class="value" id="s-x">—</div></div>
+    <div class="stat-card"><div class="label">Business Hours</div><div class="value" id="s-biz">—</div></div>
+  </div>
+
+  <div class="grid-2 section-gap">
+
+    <!-- LEFT — Draft a bid -->
+    <div class="card">
+      <h2>🧪 Draft a Bid (AI Demo)</h2>
+      <div class="field">
+        <label>Paste a LinkedIn / X post here</label>
+        <textarea id="post-input" rows="6" placeholder="e.g. Looking for a senior Python dev to help us rebuild our backend API in FastAPI. Budget $5k. DM me if interested!"></textarea>
+      </div>
+      <div class="row">
+        <div class="field" style="flex:1;margin-bottom:0">
+          <label>Platform</label>
+          <select id="platform-select">
+            <option value="linkedin">LinkedIn</option>
+            <option value="x">X (Twitter)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="draft-btn" onclick="runDraft()" style="margin-top:1rem">
+          ⚡ Generate Bid
+        </button>
+      </div>
+
+      <!-- Pipeline steps -->
+      <div class="pipeline" id="pipeline" style="display:none">
+        <div class="step" id="step-classify">
+          <div class="step-icon">1</div>
+          <div class="step-body">
+            <h4>Intent Classification</h4>
+            <p>Is this a real freelance opportunity?</p>
+            <div class="result" id="r-classify" style="display:none"></div>
+          </div>
+        </div>
+        <div class="step" id="step-pain">
+          <div class="step-icon">2</div>
+          <div class="step-body">
+            <h4>Pain Point Extraction</h4>
+            <p>What does the client actually need?</p>
+            <div class="result" id="r-pain" style="display:none"></div>
+          </div>
+        </div>
+        <div class="step" id="step-bid">
+          <div class="step-icon">3</div>
+          <div class="step-body">
+            <h4>Bid Generation</h4>
+            <p>Personalized, human-sounding pitch</p>
+            <div class="bid-box" id="r-bid" style="display:none">
+              <button class="btn btn-outline btn-sm copy-btn" onclick="copyBid()">Copy</button>
+              <div id="r-bid-text"></div>
+              <div class="model-tag" id="r-model"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT — Circuit breakers + quick actions -->
+    <div style="display:flex;flex-direction:column;gap:1.5rem">
+      <div class="card">
+        <h2>⚡ Circuit Breakers</h2>
+        <div id="circuits-body"><div class="empty">Loading…</div></div>
+      </div>
+
+      <div class="card">
+        <h2>🚀 Quick Actions</h2>
+        <div style="display:flex;flex-direction:column;gap:.75rem">
+          <button class="btn btn-outline" onclick="triggerScrape('linkedin')">🔍 Scrape LinkedIn Now</button>
+          <button class="btn btn-outline" onclick="triggerScrape('x')">🔍 Scrape X Now</button>
+          <button class="btn btn-outline" onclick="triggerScrape('both')">🔍 Scrape Both</button>
+          <button class="btn btn-outline" onclick="loadStats()">↻ Refresh Stats</button>
+        </div>
+        <div id="action-result" style="margin-top:1rem;font-size:.82rem;color:var(--muted)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity feed -->
+  <div class="card">
+    <h2>📋 Recent Activity</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Platform</th><th>Author</th><th>Status</th><th>Time</th><th>URL</th></tr></thead>
+        <tbody id="activity-body"><tr><td colspan="5"><div class="empty">Loading…</div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast">✅ Copied!</div>
+
+<script>
+const API = '';  // same origin
+
+// ── Health check ─────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const ok = r.ok;
+    document.getElementById('api-dot').style.background = ok ? 'var(--green)' : 'var(--red)';
+    document.getElementById('api-dot').style.boxShadow = ok ? '0 0 6px var(--green)' : '0 0 6px var(--red)';
+    document.getElementById('api-status').textContent = ok ? 'API Online' : 'API Offline';
+  } catch { 
+    document.getElementById('api-dot').style.background = 'var(--red)';
+    document.getElementById('api-status').textContent = 'API Offline'; 
+  }
+}
+
+// ── Load stats ────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const r = await fetch(`${API}/stats`);
+    const d = await r.json();
+
+    document.getElementById('s-posted').textContent = d.status_counts?.posted ?? 0;
+    document.getElementById('s-skipped').textContent = d.status_counts?.skipped ?? 0;
+    document.getElementById('s-failed').textContent = d.status_counts?.failed ?? 0;
+    document.getElementById('s-li').textContent = d.today_counts?.linkedin ?? 0;
+    document.getElementById('s-x').textContent = d.today_counts?.x ?? 0;
+    const biz = d.business_hours;
+    const bizEl = document.getElementById('s-biz');
+    bizEl.textContent = biz ? 'Active ✓' : 'Off-hours';
+    bizEl.className = 'value ' + (biz ? 'green' : 'yellow');
+
+    // Circuits
+    const cb = d.circuit_breakers ?? {};
+    document.getElementById('circuits-body').innerHTML = Object.entries(cb).map(([p, s]) => `
+      <div class="circuit-row">
+        <div class="circuit-label">
+          <div class="led ${s.tripped ? 'tripped' : 'ok'}"></div>
+          <strong>${p}</strong>
+          <span class="badge ${s.tripped ? 'tripped' : 'ok'}">${s.tripped ? 'TRIPPED' : 'OK'}</span>
+          <span style="color:var(--muted);font-size:.8rem">${s.failures} failure${s.failures !== 1 ? 's' : ''}</span>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="resetCircuit('${p}')" ${s.tripped ? '' : 'disabled style="opacity:.3"'}>Reset</button>
+      </div>`).join('') || '<div class="empty">No data</div>';
+
+    // Activity
+    const rows = (d.recent_interactions ?? []).map(i => `
+      <tr>
+        <td>${i.platform}</td>
+        <td>${i.author || '—'}</td>
+        <td><span class="status-badge ${i.status}">${i.status}</span></td>
+        <td>${(i.created_at || '').slice(0,19).replace('T',' ')}</td>
+        <td>${i.url ? `<a href="${i.url}" target="_blank">↗ View</a>` : '—'}</td>
+      </tr>`).join('');
+    document.getElementById('activity-body').innerHTML = rows || '<tr><td colspan="5"><div class="empty">No interactions yet — run a scrape or draft a bid</div></td></tr>';
+
+  } catch(e) { console.error('stats error', e); }
+}
+
+// ── Draft pipeline ────────────────────────────────────────
+function setStep(id, state) {
+  const el = document.getElementById(id);
+  el.className = 'step ' + state;
+  if (state === 'running') el.querySelector('.step-icon').textContent = '⟳';
+  if (state === 'done') el.querySelector('.step-icon').textContent = '✓';
+}
+
+async function runDraft() {
+  const content = document.getElementById('post-input').value.trim();
+  if (!content) { alert('Paste a post first!'); return; }
+  const platform = document.getElementById('platform-select').value;
+  const btn = document.getElementById('draft-btn');
+  btn.disabled = true; btn.textContent = 'Running…';
+
+  // Reset UI
+  const pipeline = document.getElementById('pipeline');
+  pipeline.style.display = 'flex';
+  ['step-classify','step-pain','step-bid'].forEach(id => setStep(id, ''));
+  ['r-classify','r-pain','r-bid'].forEach(id => { document.getElementById(id).style.display='none'; });
+
+  try {
+    setStep('step-classify', 'running');
+    const r = await fetch(`${API}/draft`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_content: content, platform })
+    });
+    const d = await r.json();
+
+    setStep('step-classify', 'done');
+    const rc = document.getElementById('r-classify');
+    rc.textContent = d.is_opportunity ? '✅ YES — Genuine opportunity detected' : '❌ NO — Not a real opportunity';
+    rc.style.display = 'block';
+
+    if (!d.is_opportunity) {
+      btn.disabled = false; btn.textContent = '⚡ Generate Bid';
+      return;
+    }
+
+    setStep('step-pain', 'done');
+    const rp = document.getElementById('r-pain');
+    rp.textContent = d.pain_point;
+    rp.style.display = 'block';
+
+    setStep('step-bid', 'done');
+    document.getElementById('r-bid-text').textContent = d.bid_text;
+    document.getElementById('r-model').textContent = `🤖 ${d.model_used}`;
+    document.getElementById('r-bid').style.display = 'block';
+
+  } catch(e) {
+    alert('API error: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '⚡ Generate Bid';
+  }
+}
+
+// ── Copy bid ──────────────────────────────────────────────
+function copyBid() {
+  const text = document.getElementById('r-bid-text').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  });
+}
+
+// ── Reset circuit ─────────────────────────────────────────
+async function resetCircuit(platform) {
+  const r = await fetch(`${API}/reset`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ platform })
+  });
+  if (r.ok) { showAction(`✅ Circuit reset for ${platform}`); loadStats(); }
+}
+
+// ── Trigger scrape ────────────────────────────────────────
+async function triggerScrape(platform) {
+  showAction(`⏳ Scraping ${platform}…`);
+  try {
+    const r = await fetch(`${API}/scrape`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, max_posts_per_keyword: 10 })
+    });
+    const d = await r.json();
+    if (d.skipped_reason) {
+      showAction(`⚠️ Skipped: ${d.skipped_reason}`);
+    } else {
+      showAction(`✅ Found ${d.count} new posts on ${platform}`);
+      loadStats();
+    }
+  } catch(e) { showAction(`❌ Error: ${e.message}`); }
+}
+
+function showAction(msg) {
+  document.getElementById('action-result').textContent = msg;
+}
+
+// ── Init ──────────────────────────────────────────────────
+checkHealth();
+loadStats();
+setInterval(loadStats, 15000);
+setInterval(checkHealth, 30000);
+</script>
+</body>
+</html>

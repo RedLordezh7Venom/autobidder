@@ -7,6 +7,7 @@ Pipeline:
   3. Bid Drafting — personalized, human-sounding 2-3 sentence pitch.
 """
 import asyncio
+from pathlib import Path
 from typing import Optional
 
 import structlog
@@ -27,7 +28,7 @@ logger = structlog.get_logger(__name__)
 settings = get_settings()
 
 # ── Load prompts from YAML ─────────────────────────────────────────────────────
-_PROMPTS_PATH = "/app/prompts.yaml"
+_PROMPTS_PATH = str(Path(__file__).parent / "prompts.yaml")
 _prompts_cache: Optional[dict] = None
 
 
@@ -35,7 +36,7 @@ def _load_prompts() -> dict:
     global _prompts_cache
     if _prompts_cache is None:
         try:
-            with open(_prompts_PATH := _PROMPTS_PATH) as f:
+            with open(_PROMPTS_PATH) as f:
                 _prompts_cache = yaml.safe_load(f)
         except FileNotFoundError:
             _prompts_cache = {}
