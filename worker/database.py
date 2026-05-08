@@ -100,15 +100,15 @@ CREATE TABLE IF NOT EXISTS keywords (
 
 _SEED_SQL = """
 -- Default circuit breaker rows
-INSERT OR IGNORE INTO circuit_breaker_state (platform) VALUES ('linkedin');
-INSERT OR IGNORE INTO circuit_breaker_state (platform) VALUES ('x');
+INSERT OR IGNORE INTO circuit_breaker_state (platform) VALUES ('upwork');
+INSERT OR IGNORE INTO circuit_breaker_state (platform) VALUES ('reddit');
 
 -- Default config values
-INSERT OR IGNORE INTO system_config VALUES ('linkedin_daily_limit', '12');
-INSERT OR IGNORE INTO system_config VALUES ('x_daily_limit', '7');
+INSERT OR IGNORE INTO system_config VALUES ('upwork_daily_limit', '20');
+INSERT OR IGNORE INTO system_config VALUES ('reddit_daily_limit', '20');
 INSERT OR IGNORE INTO system_config VALUES ('circuit_breaker_threshold', '3');
-INSERT OR IGNORE INTO system_config VALUES ('business_hours_start', '09:00');
-INSERT OR IGNORE INTO system_config VALUES ('business_hours_end', '18:00');
+INSERT OR IGNORE INTO system_config VALUES ('business_hours_start', '00:00');
+INSERT OR IGNORE INTO system_config VALUES ('business_hours_end', '23:59');
 INSERT OR IGNORE INTO system_config VALUES ('groq_model', 'llama-3.3-70b-versatile');
 INSERT OR IGNORE INTO system_config VALUES ('openrouter_model', 'anthropic/claude-3-haiku');
 INSERT OR IGNORE INTO system_config VALUES ('ai_temperature', '0.75');
@@ -125,12 +125,12 @@ INSERT OR IGNORE INTO skills_profile (category, skill, proficiency) VALUES
 
 -- Demo keywords
 INSERT OR IGNORE INTO keywords (platform, keyword) VALUES
-    ('linkedin', 'looking for a Python developer'),
-    ('linkedin', 'hiring a freelance developer'),
-    ('linkedin', 'need a React developer'),
-    ('x',        'looking for developer'),
-    ('x',        'hiring freelancer'),
-    ('x',        'need help with API');
+    ('upwork', 'python developer'),
+    ('upwork', 'fastapi'),
+    ('upwork', 'react'),
+    ('reddit', 'python'),
+    ('reddit', 'developer'),
+    ('reddit', 'api');
 """
 
 

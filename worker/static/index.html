@@ -134,8 +134,8 @@ a:hover{text-decoration:underline}
     <div class="stat-card"><div class="label">Total Posted</div><div class="value green" id="s-posted">—</div></div>
     <div class="stat-card"><div class="label">Skipped</div><div class="value yellow" id="s-skipped">—</div></div>
     <div class="stat-card"><div class="label">Failed</div><div class="value red" id="s-failed">—</div></div>
-    <div class="stat-card"><div class="label">Today / LinkedIn</div><div class="value" id="s-li">—</div></div>
-    <div class="stat-card"><div class="label">Today / X</div><div class="value" id="s-x">—</div></div>
+    <div class="stat-card"><div class="label">Today / Upwork</div><div class="value" id="s-li">—</div></div>
+    <div class="stat-card"><div class="label">Today / Reddit</div><div class="value" id="s-x">—</div></div>
     <div class="stat-card"><div class="label">Business Hours</div><div class="value" id="s-biz">—</div></div>
   </div>
 
@@ -145,15 +145,15 @@ a:hover{text-decoration:underline}
     <div class="card">
       <h2>🧪 Draft a Bid (AI Demo)</h2>
       <div class="field">
-        <label>Paste a LinkedIn / X post here</label>
+        <label>Paste an Upwork or Reddit post here</label>
         <textarea id="post-input" rows="6" placeholder="e.g. Looking for a senior Python dev to help us rebuild our backend API in FastAPI. Budget $5k. DM me if interested!"></textarea>
       </div>
       <div class="row">
         <div class="field" style="flex:1;margin-bottom:0">
           <label>Platform</label>
           <select id="platform-select">
-            <option value="linkedin">LinkedIn</option>
-            <option value="x">X (Twitter)</option>
+            <option value="upwork">Upwork</option>
+            <option value="reddit">Reddit (r/forhire)</option>
           </select>
         </div>
         <button class="btn btn-primary" id="draft-btn" onclick="runDraft()" style="margin-top:1rem">
@@ -204,8 +204,8 @@ a:hover{text-decoration:underline}
       <div class="card">
         <h2>🚀 Quick Actions</h2>
         <div style="display:flex;flex-direction:column;gap:.75rem">
-          <button class="btn btn-outline" onclick="triggerScrape('linkedin')">🔍 Scrape LinkedIn Now</button>
-          <button class="btn btn-outline" onclick="triggerScrape('x')">🔍 Scrape X Now</button>
+          <button class="btn btn-outline" onclick="triggerScrape('upwork')">🔍 Scrape Upwork Now</button>
+          <button class="btn btn-outline" onclick="triggerScrape('reddit')">🔍 Scrape Reddit Now</button>
           <button class="btn btn-outline" onclick="triggerScrape('both')">🔍 Scrape Both</button>
           <button class="btn btn-outline" onclick="loadStats()">↻ Refresh Stats</button>
         </div>
